@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="mobile-web-app-capable" content="yes">
+    <title>💕 Aşk Takvimi</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Georgia', serif;
+            background: linear-gradient(135deg, #FFF0F5, #FFE4E1, #FFC0CB);
+            min-height: 100vh; display: flex; justify-content: center; align-items: center;
+            padding: 20px;
+        }
+        .container {
+            background: rgba(255,255,255,0.95); border-radius: 30px; padding: 25px;
+            max-width: 400px; width: 100%; text-align: center;
+            box-shadow: 0 20px 60px rgba(255,64,129,0.2);
+        }
+        .photo-frame {
+            width: 130px; height: 130px; border-radius: 50%; border: 4px solid #FF4081;
+            margin: 0 auto 15px; overflow: hidden;
+            box-shadow: 0 0 30px rgba(255,64,129,0.3);
+            cursor: pointer; display: flex; align-items: center; justify-content: center;
+            background: #FFE4E1;
+        }
+        .photo-frame img { width: 100%; height: 100%; object-fit: cover; }
+        .photo-frame .placeholder { font-size: 50px; }
+        @keyframes heartbeat {
+            0% { transform: scale(1); } 15% { transform: scale(1.12); }
+            30% { transform: scale(1); } 45% { transform: scale(1.08); } 60% { transform: scale(1); }
+        }
+        .heartbeat { animation: heartbeat 1.5s infinite; }
+        .date { color: #FF69B4; font-size: 14px; font-style: italic; margin: 15px 0; }
+        .poem-text {
+            color: #333; font-size: 16px; line-height: 1.8; margin: 15px 0;
+            min-height: 120px; white-space: pre-line; font-style: italic;
+            padding: 15px; background: rgba(255,228,225,0.4); border-radius: 15px;
+            max-height: 300px; overflow-y: auto;
+        }
+        .btn {
+            background: linear-gradient(45deg, #FF4081, #FF80AB); color: white;
+            border: none; padding: 12px 30px; font-size: 16px; border-radius: 50px;
+            cursor: pointer; margin: 5px; font-family: 'Georgia', serif;
+            box-shadow: 0 8px 15px rgba(255,64,129,0.3);
+        }
+        .btn:active { transform: scale(0.95); }
+        .btn-small { font-size: 14px; padding: 10px 20px; }
+        .love-counter {
+            background: rgba(255,64,129,0.1); border-radius: 20px; padding: 10px;
+            margin-top: 15px; color: #C2185B; font-size: 14px;
+        }
+        .info { font-size: 11px; color: #999; margin-top: 5px; }
+        .loading-text { color: #FF69B4; animation: pulse 1s infinite; }
+        @keyframes pulse { 0%{opacity:0.5} 50%{opacity:1} 100%{opacity:0.5} }
+        .sparkles {
+            position: fixed; pointer-events: none;
+            animation: sparkle 1s ease-out forwards;
+        }
+        @keyframes sparkle {
+            0% { transform: translateY(0) scale(1); opacity: 1; }
+            100% { transform: translateY(-100px) scale(0); opacity: 0; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="photo-frame heartbeat" id="photoFrame" onclick="yenile()">
+            <span class="placeholder">💕</span>
+        </div>
+        <div class="date" id="date"></div>
+        <div class="poem-text" id="poemText">
+            <span class="loading-text">Yükleniyor...</span>
+        </div>
+        <button class="btn" onclick="yenile()">💝 Fotoğraf & Şiir Yenile</button>
+        <br>
+        <button class="btn btn-small" onclick="yeniSiir()">📝 Sadece Şiir Değiştir</button>
+        <div class="love-counter">💑 <span id="daysTogether"></span></div>
+        <div class="info">📷 <span id="photoCount">?</span> fotoğraf | 📝 <span id="poemCount">?</span> şiir</div>
+    </div>
+
+    <script>
+        // ============ AYARLAR ============
+        const WEDDING = new Date(2023, 4, 18); // 18 Mayıs 2023
+        const GITHUB_USER = 'sg21-ux';
+        const GITHUB_REPO = 'ask-takvimi';
+        const GITHUB_BRANCH = 'main';
+        const PHOTO_BASE = `https://raw.githubusercontent.com/${GITHUB_USER}/${GITHUB_REPO}/${GITHUB_BRANCH}/`;
+        const POEM_URL = `${PHOTO_BASE}romantik_beyitler_farkli_2000_duzenli-1.txt`;
+        
+        let photos = [];
+        let poems = [];
+        
+        // ============ FOTOĞRAF LİSTESİ ============
+        function buildPhotoList() {
+            photos = [];
+            // Repo'ndaki fotoğraflar: IMG-20230610-WA0008.jpg ile IMG-20230610-WA0537.jpg arası
+            for (let i = 8; i <= 537; i++) {
+                photos.push(`${PHOTO_BASE}IMG-20230610-WA${String(i).padStart(4, '0')}.jpg`);
+            }
+            document.getElementById('photoCount').textContent = photos.length;
+        }
+        
+        // ============ ŞİİRLERİ YÜKLE ============
+        async function loadPoems() {
+            try {
+                const res = await fetch(POEM_URL);
+                if (!res.ok) throw new Error('Dosya bulunamadı');
+                const text = await res.text();
+                parsePoems(text);
+                document.getElementById('poemCount').textContent = poems.length;
+                return true;
+            } catch (e) {
+                console.error(e);
+                poems = ['💕 Seni seviyorum... Her gün yeniden, her an yeniden...'];
+                document.getElementById('poemCount').textContent = poems.length;
+                return false;
+            }
+        }
+        
+        function parsePoems(text) {
+            poems = [];
+            const lines = text.split('\n');
+            let current = '';
+            
+            for (let line of lines) {
+                const t = line.trim();
+                if (!t) continue;
+                if (t.includes('Romantik Beyitler') || t.includes('Her beyit') || 
+                    t.includes('Günümüz Türkçesi') || t.startsWith('---')) continue;
+                
+                if (/^\d+\./.test(t) && current) {
+                    poems.push(current.trim());
+                    current = '';
+                }
+                current += t.replace(/^\d+\.\s*/, '') + '\n';
+            }
+            if (current.trim()) poems.push(current.trim());
+        }
+        
+        // ============ RASTGELE ============
+        function randPhoto() {
+            return photos[Math.floor(Math.random() * photos.length)];
+        }
+        
+        function randPoem() {
+            return poems[Math.floor(Math.random() * poems.length)] || 'Yükleniyor...';
+        }
+        
+        // ============ GÖRSEL GÖSTER ============
+        function showPhoto(tryCount = 0) {
+            const frame = document.getElementById('photoFrame');
+            if (tryCount > 15) {
+                frame.innerHTML = '<span class="placeholder">💑</span>';
+                return;
+            }
+            
+            const img = document.createElement('img');
+            img.alt = 'Biz';
+            img.onload = () => {
+                frame.innerHTML = '';
+                frame.appendChild(img);
+            };
+            img.onerror = () => showPhoto(tryCount + 1);
+            img.src = randPhoto();
+        }
+        
+        // ============ GÜN SAYACI ============
+        function updateCounter() {
+            const days = Math.floor((new Date() - WEDDING) / 86400000);
+            document.getElementById('daysTogether').textContent = `Evliliğimizin ${days}. günü... 💝`;
+        }
+        
+        function setDate() {
+            document.getElementById('date').textContent = new Date()
+                .toLocaleDateString('tr-TR', { year:'numeric', month:'long', day:'numeric', weekday:'long' });
+        }
+        
+        // ============ EFEKT ============
+        function sparkles() {
+            const emojis = ['💕','💖','💝','💗','✨','💫','🌸','❤️'];
+            const rect = document.getElementById('photoFrame').getBoundingClientRect();
+            const cx = rect.left + rect.width/2, cy = rect.top + rect.height/2;
+            
+            for (let i = 0; i < 6; i++) {
+                const s = document.createElement('span');
+                s.textContent = emojis[Math.floor(Math.random()*emojis.length)];
+                s.className = 'sparkles';
+                s.style.cssText = `position:fixed;left:${cx+(Math.random()-0.5)*80}px;top:${cy}px;font-size:${15+Math.random()*15}px;animation:sparkle ${0.5+Math.random()*0.5}s ease-out forwards;`;
+                document.body.appendChild(s);
+                setTimeout(() => s.remove(), 1000);
+            }
+        }
+        
+        // ============ BUTONLAR ============
+        function yenile() {
+            showPhoto();
+            document.getElementById('poemText').textContent = randPoem();
+            sparkles();
+            if (navigator.vibrate) navigator.vibrate(30);
+        }
+        
+        function yeniSiir() {
+            document.getElementById('poemText').textContent = randPoem();
+            if (navigator.vibrate) navigator.vibrate(20);
+        }
+        
+        // ============ BAŞLAT ============
+        async function init() {
+            setDate();
+            updateCounter();
+            buildPhotoList();
+            
+            const ok = await loadPoems();
+            document.getElementById('poemText').textContent = ok ? randPoem() : 
+                '⚠️ Şiirler yüklenemedi.\nromantik_beyitler_farkli_2000_duzenli-1.txt\nana dizinde olduğunu kontrol et.\n\n💕 Seni seviyorum...';
+            
+            showPhoto();
+        }
+        
+        window.addEventListener('DOMContentLoaded', init);
+        setInterval(updateCounter, 60000);
+    </script>
+</body>
+</html>
